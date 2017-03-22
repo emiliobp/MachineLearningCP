@@ -1,0 +1,104 @@
+---
+title: "Prediction Assignment"
+author: "Emilio Blanco"
+date: "March 17, 2017"
+output: html_document
+---
+
+The goal of your project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases.
+
+## Reproducibility
+
+```{r setup}
+##import used libraries
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+
+set.seed(123123)
+
+
+```
+
+##Loading and Cleaning Data
+
+```{r loading}
+##Create directory if it doesnt exists
+if(!file.exists("./datafolder")){
+    dir.create("./datafolder")
+    }
+trainUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+## add if working on Mac OS (,method="curl")
+download.file(trainUrl,destfile="./datafolder/pmltraining.csv")
+download.file(testUrl,destfile="./datafolder/pmltesting.csv")
+
+trainDf <- read.csv("./datafolder/pmltraining.csv", header = TRUE, na.strings=c("NA","#DIV/0!",""))
+testDf <- read.csv("./datafolder/pmltesting.csv", header = TRUE, na.strings=c("NA","#DIV/0!",""))
+
+##Removing the unnecessary columns from both data sets such as user name and timestamps.
+trainDf <- trainDf[, -c(1:7)]
+testDf <- testDf[, -c(1:7)]
+
+##Delete empty columns from data set
+trainDf <- trainDf[,colSums(is.na(trainDf))==0]
+testDf <- testDf[,colSums(is.na(testDf))==0]
+```
+
+**Data Partitioning**
+
+We will partition our training data set in order to create the model ana make some tests.
+75% for training and 25% for test based on the classe variable.
+```{r part}
+inTrain <- createDataPartition(y=trainDf$classe, p=0.75, list = FALSE)
+trainPart <- trainDf[inTrain,]
+testPart <- trainDf[-inTrain,]
+dim(trainPart)
+dim(testPart)
+```
+
+##Model Creation
+
+First we start creating a classification tree model based on the type of data we have, we would like to test the prediction based on new data.
+
+```{r classtree}
+##Model Creation
+classTreeModel <- rpart(classe ~ ., method = "class", data = trainPart)
+
+##Prediction Model
+classTreePredict <- predict(classTreeModel, testPart, type = "class")
+##Plot
+rpart.plot(classTreeModel, main="Classification Tree", extra = 0, fallen.leaves = FALSE)
+
+##Confusion Matrix test
+confusionMatrix(classTreePredict, testPart$classe)
+```
+
+From this model we get a 74% accuracy.
+
+**Random Forest Model**
+
+We continue to create a new model to classify our variables.
+
+```{r randomfor}
+## Random Forest Model Creation
+randomForModel <- randomForest(classe ~., method="class", data = trainPart)
+
+##Prediction Model
+randomForPredict <- predict(randomForModel, testPart, type="class")
+
+##Confusion Testing
+confusionMatrix(randomForPredict, testPart$classe)
+```
+
+The results were improved using the Random Forest Model with a 99% of accuracy.
+
+## Final Prediction 
+
+```{r final pred}
+finalPredictioRF <- predict(randomForModel, testDf, type = "class")
+##The results for the quizz comes below
+finalPredictioRF
+```
